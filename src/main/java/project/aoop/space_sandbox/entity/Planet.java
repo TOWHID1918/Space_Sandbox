@@ -25,5 +25,5 @@ public class Planet extends CelestialBody {
     public double getOrbitalPeriod()       { return orbitalPeriod; }
     public Color  getColor()               { return color; }
     public double getOrbitalAngle()        { return orbitalAngle; }
-    public void   setOrbitalAngle(double a){ this.orbitalAngle = a; }
+    public void   setOrbitalAngle(double a) { this.orbitalAngle = a; }
 }

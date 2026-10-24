@@ -6,6 +6,7 @@ public class PhysicsConfig {
     public static final double G                  = 0.1;
     public static final double ORBIT_ASSIST_RATE  = 3.0;  // was 2.0 — snaps to orbit faster
     public static final double RADIAL_DAMPEN_RATE = 0.85; // was 0.2 — stops outward drift fast
+    public static final double LOCKED_GRAVITY_MULT = 18.0;
 
     // ── Ship ─────────────────────────────────────────────────────────────
     public static final double SHIP_THRUST        = 5.6;
@@ -16,6 +17,21 @@ public class PhysicsConfig {
     public static final double SHIP_START_VX      = -0.3;   // drifting toward Earth
     public static final double SHIP_START_VY      = 0.0;
     public static final double SAFE_LAND_SPEED    = 1.5;    // below = land, above = bounce
+
+    // Level-indexed values. Index 0 is unused; current values are preserved
+    // for every level because the existing ship physics uses the constants above.
+    public static final double[] SPEED_LIMITS = {
+            0.0, 8.0, 10.0, 12.0, 28.0, 45.0, 60.0, 75.0, 90.0
+    };
+    public static final double[] THRUST_POWERS = {
+            0.0, SHIP_THRUST, SHIP_THRUST, SHIP_THRUST,
+            SHIP_THRUST, SHIP_THRUST, SHIP_THRUST, SHIP_THRUST, SHIP_THRUST
+    };
+    public static final double[] BRAKE_POWERS = {
+            0.0, SHIP_BRAKE_FORCE, SHIP_BRAKE_FORCE, SHIP_BRAKE_FORCE,
+            SHIP_BRAKE_FORCE, SHIP_BRAKE_FORCE, SHIP_BRAKE_FORCE, SHIP_BRAKE_FORCE,
+            SHIP_BRAKE_FORCE
+    };
 
     // ── Camera ───────────────────────────────────────────────────────────
     public static final double CAMERA_ZOOM        = 0.9;
@@ -108,4 +124,18 @@ public class PhysicsConfig {
     public static final double NEPTUNE_PERIOD         = 96000;
     public static final double NEPTUNE_GRAVITY_RADIUS = 70.0;
     public static final double NEPTUNE_START_ANGLE    = 5.1;
+
+    // ── Fire rate cooldown per level (seconds between shots) ─────────────
+    // Level 1: slow single shots. Level 8: rapid fire
+    public static final double[] FIRE_RATES = {
+            0.0,   // index 0 unused
+            0.40,  // Level 1 — slow
+            0.32,  // Level 2
+            0.26,  // Level 3
+            0.20,  // Level 4
+            0.16,  // Level 5 — laser starts here
+            0.12,  // Level 6
+            0.10,  // Level 7
+            0.08,  // Level 8 — rapid fire
+    };
 }

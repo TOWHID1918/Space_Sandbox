@@ -116,6 +116,104 @@ public class HUDRenderer {
         }
     }
 
+    public void drawLockWarnings(GraphicsContext gc, Ship ship, List<Planet> planets) {
+        for (Planet p : planets) {
+            if (!levelService.isLocked(p.getName())) continue;
+
+            double dx   = ship.getX() - p.getX();
+            double dy   = ship.getY() - p.getY();
+            double dist = Math.sqrt(dx*dx + dy*dy);
+
+            double zone    = p.getGravityRadius();
+            boolean inside = dist < zone;
+            boolean close  = dist < zone * 1.8;
+
+            if (!close) continue;
+
+            double cx = camera.getScreenW() / 2;
+            double cy = camera.getScreenH() / 2;
+
+            double severity = 1.0 - ((dist - zone) / (zone * 0.8));
+            severity = Math.max(0, Math.min(1, severity));
+
+            double pulse = 0.6 + 0.4 * Math.sin(
+                    System.currentTimeMillis() * (0.004 + severity * 0.012));
+
+            if (inside) {
+                for (int i = 0; i < 3; i++) {
+                    double margin = i * 12.0;
+                    gc.setStroke(Color.color(1, 0.1, 0.1,
+                            0.08 * pulse * (3 - i)));
+                    gc.setLineWidth(20 - i * 6);
+                    gc.strokeRect(margin, margin,
+                            camera.getScreenW() - margin*2,
+                            camera.getScreenH() - margin*2);
+                }
+
+                double bw = 420, bh = 52;
+                double bx = cx - bw/2, by = 60;
+
+                gc.setFill(Color.color(0.6, 0, 0, 0.75 * pulse));
+                gc.fillRoundRect(bx, by, bw, bh, 6, 6);
+
+                gc.setStroke(Color.color(1, 0.2, 0.2, pulse));
+                gc.setLineWidth(1.5);
+                gc.strokeRoundRect(bx, by, bw, bh, 6, 6);
+
+                gc.setFill(Color.color(1, 1, 1, pulse));
+                gc.setFont(Font.font("Courier New", FontWeight.BOLD, 18));
+                gc.setTextAlign(TextAlignment.CENTER);
+                gc.fillText("⚠  LOCKED ZONE — " + p.getName().toUpperCase()
+                        + "  ⚠", cx, by + 33);
+                gc.setTextAlign(TextAlignment.LEFT);
+
+                double surface = dist - p.getRadius();
+                gc.setFill(Color.color(1, 0.5, 0.5, 0.85));
+                gc.setFont(Font.font("Courier New", 11));
+                gc.setTextAlign(TextAlignment.CENTER);
+                gc.fillText(String.format("%.0f u to surface — THRUST AWAY NOW",
+                        Math.max(0, surface)), cx, by + bh + 16);
+                gc.setTextAlign(TextAlignment.LEFT);
+            } else {
+                double angle = Math.atan2(dy, dx);
+                double ww = 260, wh = 44;
+
+                double wx, wy;
+                if (Math.abs(Math.cos(angle)) > Math.abs(Math.sin(angle))) {
+                    wx = Math.cos(angle) > 0
+                            ? camera.getScreenW() - ww - 12
+                            : 12;
+                    wy = cy - wh / 2;
+                } else {
+                    wx = cx - ww / 2;
+                    wy = Math.sin(angle) > 0
+                            ? camera.getScreenH() - wh - 50
+                            : 115;
+                }
+
+                gc.setFill(Color.color(0.3, 0, 0, 0.70 * pulse));
+                gc.fillRoundRect(wx, wy, ww, wh, 6, 6);
+
+                gc.setStroke(Color.color(1, 0.2, 0.2, 0.5 * pulse));
+                gc.setLineWidth(1);
+                gc.strokeRoundRect(wx, wy, ww, wh, 6, 6);
+
+                gc.setFill(Color.color(1, 0.4, 0.4, pulse));
+                gc.setFont(Font.font("Courier New", FontWeight.BOLD, 12));
+                gc.setTextAlign(TextAlignment.CENTER);
+                gc.fillText("⚠  " + p.getName().toUpperCase() + " — LOCKED",
+                        wx + ww/2, wy + 17);
+
+                double toZone = dist - zone;
+                gc.setFill(Color.color(1, 0.7, 0.7, 0.8 * pulse));
+                gc.setFont(Font.font("Courier New", 10));
+                gc.fillText(String.format("%.0f u to danger zone", toZone),
+                        wx + ww/2, wy + 32);
+                gc.setTextAlign(TextAlignment.LEFT);
+            }
+        }
+    }
+
     private void drawSpeedBar(GraphicsContext gc, Ship ship) {
         double cx     = camera.getScreenW() / 2;
         double bottom = camera.getScreenH() - 14;

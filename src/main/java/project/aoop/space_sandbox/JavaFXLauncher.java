@@ -18,21 +18,17 @@ public class JavaFXLauncher extends Application {
 
     private ConfigurableApplicationContext springContext;
 
-    // Runs before window opens — boots Spring so all beans are ready
     @Override
     public void init() {
         springContext = new SpringApplicationBuilder(SpaceSandboxApplication.class).run();
     }
 
-    // Creates and shows the window
     @Override
     public void start(Stage stage) {
         double W = 1280, H = 720;
 
-        // Canvas is the drawing surface
         Canvas canvas = new Canvas(W, H);
 
-        // Pull beans from Spring context
         GameCamera camera = springContext.getBean(GameCamera.class);
         camera.setScreenSize(W, H);
 
@@ -40,19 +36,24 @@ public class JavaFXLauncher extends Application {
         renderer.setCanvas(canvas);
 
         InputHandler inputHandler = springContext.getBean(InputHandler.class);
-        GameLoop gameLoop         = springContext.getBean(GameLoop.class);
+        GameLoop     gameLoop     = springContext.getBean(GameLoop.class);
+
+        // Tell GameLoop the canvas size so it can handle minimap clicks
+        gameLoop.setCanvasSize(W, H);
 
         GameState gameState = springContext.getBean(GameState.class);
         gameState.setState(GameState.State.RUNNING);
 
-        // Scene holds canvas and listens for keyboard
         Scene scene = new Scene(new Pane(canvas), W, H);
+
+        // Keyboard
         inputHandler.attach(scene);
 
-        // Mouse click — minimap expand or planet selection on map
-        canvas.setOnMouseClicked(e -> renderer.handleClick(e.getX(), e.getY()));
+        // Mouse — InputHandler tracks press/held/release
+        // GameLoop reads these every frame and decides what to do
+        inputHandler.attachMouse(scene);
 
-        // Scroll wheel — zoom in/out
+        // Scroll wheel — zoom
         scene.setOnScroll(e -> {
             if (e.getDeltaY() > 0) camera.adjustZoom(1.1);
             else                   camera.adjustZoom(0.9);
@@ -63,10 +64,9 @@ public class JavaFXLauncher extends Application {
         stage.setResizable(false);
         stage.show();
 
-        gameLoop.start(); // begin AnimationTimer — game is now running
+        gameLoop.start();
     }
 
-    // Runs when window is closed — clean shutdown
     @Override
     public void stop() {
         springContext.close();

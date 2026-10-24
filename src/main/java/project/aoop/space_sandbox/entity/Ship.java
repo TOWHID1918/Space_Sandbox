@@ -15,8 +15,7 @@ public class Ship {
     private int    engineTier = 1;
     private int    health     = 100;
 
-    public void thrust(double deltaTime) {
-        double power = PhysicsConfig.SHIP_THRUST * engineTier;
+    public void thrust(double deltaTime, double power) {
         vx += Math.cos(angle) * power * deltaTime;
         vy += Math.sin(angle) * power * deltaTime;
     }
@@ -24,13 +23,14 @@ public class Ship {
     public void rotateLeft(double deltaTime)  { angle -= PhysicsConfig.SHIP_ROTATE_SPEED * deltaTime; }
     public void rotateRight(double deltaTime) { angle += PhysicsConfig.SHIP_ROTATE_SPEED * deltaTime; }
 
-    public void brake(double deltaTime) {
+    public void brake(double deltaTime, double brakePower) {
         double speed = getSpeed();
-        if (speed < 0.001) { vx = 0; vy = 0; return; }
-        double brakeForce = PhysicsConfig.SHIP_BRAKE_FORCE * deltaTime;
-        double ratio = Math.max(0, 1.0 - brakeForce / speed);
-        vx *= ratio;
-        vy *= ratio;
+        if (speed == 0) return;
+
+        double reducedSpeed = Math.max(0, speed - brakePower * deltaTime);
+        double scale = reducedSpeed / speed;
+        vx *= scale;
+        vy *= scale;
     }
 
     public void update(double deltaTime) {

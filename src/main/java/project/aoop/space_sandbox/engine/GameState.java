@@ -8,7 +8,7 @@ public class GameState {
 
     private State current = State.MENU;
 
-    public boolean isRunning() {return  current == State.RUNNING; }
+    public boolean isRunning() { return current == State.RUNNING; }
     public void setState(State s) { this.current = s; }
     public State getState() { return current; }
 }
