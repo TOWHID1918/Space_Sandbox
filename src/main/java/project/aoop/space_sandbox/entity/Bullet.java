@@ -1,5 +1,5 @@
 package project.aoop.space_sandbox.entity;
-
+//test
 public class Bullet {
 
     private double x, y;
