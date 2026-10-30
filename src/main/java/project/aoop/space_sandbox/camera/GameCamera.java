@@ -24,9 +24,8 @@ public class GameCamera {
     }
 
     public void follow(double targetX, double targetY, double deltaTime) {
-        double speed = 5.0;
-        x += (targetX - x) * speed * deltaTime;
-        y += (targetY - y) * speed * deltaTime;
+        x = targetX;
+        y = targetY;
     }
 
     public void adjustZoom(double factor) {

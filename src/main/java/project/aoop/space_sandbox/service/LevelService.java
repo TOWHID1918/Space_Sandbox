@@ -45,7 +45,7 @@ public class LevelService {
     // ── Level-based ship stats ─────────────────────────────────────────────
     public double getSpeedLimit()        { return PhysicsConfig.SPEED_LIMITS[level];    }
     public double getThrustPower()       { return PhysicsConfig.THRUST_POWERS[level];   }
-    public double getBrakePower()        { return PhysicsConfig.BRAKE_POWERS[level];    }
+    public double getBrakePower()        { return getSpeedLimit() / PhysicsConfig.BRAKE_STOP_TIMES[level]; }
     public double getFireRateCooldown()  { return PhysicsConfig.FIRE_RATES[level];      }
 
     public List<String> getAccessiblePlanets() {

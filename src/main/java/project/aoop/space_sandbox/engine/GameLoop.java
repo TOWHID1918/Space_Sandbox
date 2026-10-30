@@ -3,8 +3,8 @@ package project.aoop.space_sandbox.engine;
 import javafx.animation.AnimationTimer;
 import org.springframework.stereotype.Component;
 import project.aoop.space_sandbox.camera.GameCamera;
-import project.aoop.space_sandbox.config.PhysicsConfig;
 import project.aoop.space_sandbox.entity.CelestialBody;
+import project.aoop.space_sandbox.entity.Moon;
 import project.aoop.space_sandbox.entity.Planet;
 import project.aoop.space_sandbox.entity.Ship;
 import project.aoop.space_sandbox.entity.Star;
@@ -23,13 +23,12 @@ import java.util.List;
 @Component
 public class GameLoop extends AnimationTimer {
 
-    private long    lastTime    = 0;
-    private boolean levelUpHeld = false;
+    private long    lastTime      = 0;
+    private boolean levelUpHeld   = false;
     private boolean levelDownHeld = false;
-    private boolean escHeld     = false;
-    private boolean mousePressOnMinimap = false;
+    private boolean escHeld       = false;
 
-    // Set by JavaFXLauncher after canvas is created
+    // Set by JavaFXLauncher after the canvas is created
     private double canvasW = 1280;
     private double canvasH = 720;
 
@@ -66,7 +65,6 @@ public class GameLoop extends AnimationTimer {
         this.minimapRenderer  = minimapRenderer;
     }
 
-    // Called from JavaFXLauncher right after canvas is created
     public void setCanvasSize(double w, double h) {
         this.canvasW = w;
         this.canvasH = h;
@@ -74,18 +72,13 @@ public class GameLoop extends AnimationTimer {
 
     @Override
     public void handle(long now) {
-        if (lastTime == 0) {
-            lastTime = now;
-            inputHandler.clearFrameState();
-            return;
-        }
+        if (lastTime == 0) { lastTime = now; return; }
         double dt = Math.min((now - lastTime) / 1_000_000_000.0, 0.05);
         lastTime = now;
 
-        if (!gameState.isRunning()) {
-            inputHandler.clearFrameState();
-            return;
-        }
+        if (!gameState.isRunning()) return;
+
+        Ship ship = shipService.getShip();
 
         // ── 1. Input ──────────────────────────────────────────────────────
         if (inputHandler.thrustForward()) shipService.thrustForward(dt);
@@ -93,54 +86,34 @@ public class GameLoop extends AnimationTimer {
         if (inputHandler.rotateRight())   shipService.rotateRight(dt);
         if (inputHandler.brake())         shipService.brake(dt);
 
+        // Mouse: clicks on the minimap / open map must never fire the weapons
+        double  mx          = inputHandler.getMouseX();
+        double  my          = inputHandler.getMouseY();
+        boolean overMinimap = minimapRenderer.isClickOnMinimap(mx, my, canvasW, canvasH);
+        boolean mapOpen     = solarSystemMap.isOpen();
+
+        if (inputHandler.isMouseJustPressed() && !overMinimap && !mapOpen) {
+            combatService.onMousePressed(ship);
+        }
+        if (inputHandler.isMouseHeld() && !overMinimap && !mapOpen) {
+            combatService.onMouseHeld(ship, dt);
+        }
+        if (inputHandler.isMouseJustReleased()) {
+            if (mapOpen) {
+                renderer.handleClick(mx, my);                 // pick a planet on the map
+            } else if (overMinimap && !combatService.isCharging()) {
+                solarSystemMap.open();                        // open the full map
+            } else {
+                combatService.onMouseReleased(ship);          // fire the charged laser
+            }
+        }
+
+        // Right click: switch bullet <-> laser
         if (inputHandler.isSecondaryMouseJustPressed()) {
             combatService.toggleWeaponMode();
         }
 
-        // Mouse just pressed — remember whether this interaction started on the minimap.
-        if (inputHandler.isMouseJustPressed()) {
-            mousePressOnMinimap = !solarSystemMap.isOpen()
-                    && minimapRenderer.isClickOnMinimap(
-                    inputHandler.getMouseX(), inputHandler.getMouseY(),
-                    canvasW, canvasH);
-
-            if (!solarSystemMap.isOpen() && !mousePressOnMinimap) {
-                combatService.onMousePressed(shipService.getShip());
-            }
-        }
-
-        // Mouse held — build charge or fire bullets continuously
-        if (inputHandler.isMouseHeld()
-                && !solarSystemMap.isOpen()
-                && !mousePressOnMinimap) {
-            combatService.onMouseHeld(shipService.getShip(), dt);
-        }
-
-        // Mouse just released — fire laser or handle map click
-        if (inputHandler.isMouseJustReleased()) {
-            if (solarSystemMap.isOpen()) {
-                // Map open — treat release as planet selection click
-                renderer.handleClick(
-                        inputHandler.getMouseX(),
-                        inputHandler.getMouseY()
-                );
-            } else if (mousePressOnMinimap || minimapRenderer.isClickOnMinimap(
-                    inputHandler.getMouseX(),
-                    inputHandler.getMouseY(),
-                    canvasW, canvasH)) {
-                // Click on minimap — open full map
-                solarSystemMap.open();
-            } else {
-                // Shooting — fire charged laser or do nothing for bullets
-                combatService.onMouseReleased(shipService.getShip());
-            }
-            mousePressOnMinimap = false;
-        }
-
-        // These flags describe one frame only; do not replay the click next frame.
-        inputHandler.clearFrameState();
-
-        // Level up — single press only
+        // L = level up, P = level down (single press each)
         if (inputHandler.levelUp()) {
             if (!levelUpHeld) { levelService.levelUp(); levelUpHeld = true; }
         } else { levelUpHeld = false; }
@@ -149,33 +122,31 @@ public class GameLoop extends AnimationTimer {
             if (!levelDownHeld) { levelService.levelDown(); levelDownHeld = true; }
         } else { levelDownHeld = false; }
 
-        // ESC — close map
+        // ESC closes the map
         if (inputHandler.closeMap()) {
             if (!escHeld) { solarSystemMap.close(); escHeld = true; }
         } else { escHeld = false; }
 
         // ── 2. Move planets ───────────────────────────────────────────────
         for (Planet p : planets) {
-            if (p instanceof project.aoop.space_sandbox.entity.Moon m) {
-                m.updateAroundEarth(dt);
+            if (p instanceof Moon m) {
+                m.updateAroundEarth(dt);       // Moon orbits Earth
             } else {
                 orbitalMechanics.update(p, dt);
             }
         }
 
-        // ── 3. Update bullets ─────────────────────────────────────────────
-        combatService.update(dt, shipService.getShip());
-
-        // ── 4. Physics ────────────────────────────────────────────────────
+        // ── 3. Ship physics ───────────────────────────────────────────────
         List<CelestialBody> bodies = new ArrayList<>();
         bodies.add(star);
         bodies.addAll(planets);
         shipService.update(bodies, dt);
 
-        // ── 5. Crash checks ───────────────────────────────────────────────
-        Ship ship = shipService.getShip();
+        // ── 4. Combat — AFTER the ship moved, so shots and the beam use the
+        //       same ship position that gets drawn this frame ─────────────
+        combatService.update(dt, ship);
 
-        // Sun
+        // ── 5. Crash / landing checks ─────────────────────────────────────
         if (dist(ship, star.getX(), star.getY()) <= star.getRadius()) {
             ship.crash();
             gameState.setState(GameState.State.PAUSED);
@@ -183,7 +154,6 @@ public class GameLoop extends AnimationTimer {
             return;
         }
 
-        // Locked planet — ship crashes on contact
         for (Planet p : planets) {
             if (!levelService.isLocked(p.getName())) continue;
             if (dist(ship, p.getX(), p.getY()) <= p.getRadius()) {
@@ -196,29 +166,19 @@ public class GameLoop extends AnimationTimer {
             }
         }
 
-        // Current/mastered planet — normal landing check
-        for (Planet p : planets) {
-            if (!levelService.isAccessible(p.getName())) continue;
-            if (dist(ship, p.getX(), p.getY()) <= p.getRadius()) {
-                handleLanding(ship, p);
-                break;
-            }
-        }
-
-        // ── 6. Camera + render ────────────────────────────────────────────
+        // ── 6. Camera locks onto the ship ─────────────────────────────────
         camera.follow(ship.getX(), ship.getY(), dt);
+
+        // ── 7. Render ─────────────────────────────────────────────────────
         renderer.render(ship, inputHandler.thrustForward());
+
+        // ── 8. Clear one-frame input flags ────────────────────────────────
+        inputHandler.clearFrameState();
     }
 
     private double dist(Ship ship, double tx, double ty) {
         double dx = ship.getX() - tx;
         double dy = ship.getY() - ty;
         return Math.sqrt(dx * dx + dy * dy);
-    }
-
-    private void handleLanding(Ship ship, Planet planet) {
-        if (ship.getSpeed() <= PhysicsConfig.SAFE_LAND_SPEED) {
-            levelService.visitPlanet(planet.getName());
-        }
     }
 }

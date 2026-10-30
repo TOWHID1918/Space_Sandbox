@@ -16,7 +16,6 @@ public class PhysicsConfig {
     public static final double SHIP_START_Y       = 499.0;  // Earth is at (0, 499)
     public static final double SHIP_START_VX      = -0.3;   // drifting toward Earth
     public static final double SHIP_START_VY      = 0.0;
-    public static final double SAFE_LAND_SPEED    = 1.5;    // below = land, above = bounce
 
     // Level-indexed values. Index 0 is unused; current values are preserved
     // for every level because the existing ship physics uses the constants above.
@@ -26,11 +25,6 @@ public class PhysicsConfig {
     public static final double[] THRUST_POWERS = {
             0.0, SHIP_THRUST, SHIP_THRUST, SHIP_THRUST,
             SHIP_THRUST, SHIP_THRUST, SHIP_THRUST, SHIP_THRUST, SHIP_THRUST
-    };
-    public static final double[] BRAKE_POWERS = {
-            0.0, SHIP_BRAKE_FORCE, SHIP_BRAKE_FORCE, SHIP_BRAKE_FORCE,
-            SHIP_BRAKE_FORCE, SHIP_BRAKE_FORCE, SHIP_BRAKE_FORCE, SHIP_BRAKE_FORCE,
-            SHIP_BRAKE_FORCE
     };
 
     // ── Camera ───────────────────────────────────────────────────────────
@@ -137,5 +131,17 @@ public class PhysicsConfig {
             0.12,  // Level 6
             0.10,  // Level 7
             0.08,  // Level 8 — rapid fire
+    };
+
+    public static final double[] BRAKE_STOP_TIMES = {
+            0.0,   // index 0 unused
+            4.0,   // Level 1
+            3.5,   // Level 2
+            3.0,   // Level 3
+            2.5,   // Level 4
+            2.0,   // Level 5
+            1.6,   // Level 6
+            1.3,   // Level 7
+            1.0,   // Level 8
     };
 }
