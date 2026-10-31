@@ -42,6 +42,8 @@ public class GameRenderer {
     private final CombatService            combatService;
     private final Star                     star;
     private final List<Planet>             planets;
+    private final AsteroidRenderer        asteroidRenderer;
+    private final AsteroidWarningRenderer asteroidWarningRenderer;
 
     public GameRenderer(GameCamera camera, StarfieldRenderer starfieldRenderer,
                         ShipRenderer shipRenderer, PlanetRenderer planetRenderer,
@@ -52,6 +54,8 @@ public class GameRenderer {
                         NavigationService navigationService,
                         LevelService levelService,
                         CombatService combatService,
+                        AsteroidRenderer asteroidRenderer,
+                        AsteroidWarningRenderer asteroidWarningRenderer,
                         Star star, List<Planet> planets) {
         this.camera             = camera;
         this.starfieldRenderer  = starfieldRenderer;
@@ -66,6 +70,8 @@ public class GameRenderer {
         this.levelService       = levelService;
         this.combatService      = combatService;
         this.star               = star;
+        this.asteroidRenderer   = asteroidRenderer;
+        this.asteroidWarningRenderer = asteroidWarningRenderer;
         this.planets            = planets;
     }
 
@@ -105,6 +111,7 @@ public class GameRenderer {
         drawSunGravityZone(gc, ship);
         proceduralRenderer.drawSun(gc, star);
         planets.forEach(p -> proceduralRenderer.drawPlanet(gc, p));
+        asteroidRenderer.render(gc);
         bulletRenderer.render(gc, combatService.getBullets()); // bullets behind ship
         shipRenderer.render(gc, camera, ship, thrusting);
 
@@ -113,6 +120,7 @@ public class GameRenderer {
         hudRenderer.render(gc, ship, planets);
         hudRenderer.drawLockWarnings(gc, ship, planets);
         solarSystemMap.render(gc, w, h, ship, star, planets, navigationService);
+        asteroidWarningRenderer.render(gc, ship);
     }
 
     // ── Planet zones — color by status ───────────────────────────────────────

@@ -3,8 +3,6 @@ package project.aoop.space_sandbox.entity;
 /**
  * Single source of truth for the ship's shape.
  * Design space: origin = ship centre, +x = right wing, -y = nose.
- * ShipRenderer draws in this space, CombatService spawns shots from it,
- * so the barrels and the shots can never drift apart.
  */
 public final class ShipGeometry {
 
@@ -19,11 +17,13 @@ public final class ShipGeometry {
     public static final double LASER_MUZZLE_X  =  6.2;   // right wing
     public static final double LASER_MUZZLE_Y  = -4.2;
 
+    /** Collision circle of the ship in world units (about half the wing span). */
+    public static final double COLLISION_RADIUS = 8.5 * WORLD_PER_UNIT;
+
     /** Converts a point on the ship (design units) to world coordinates. */
     public static double[] toWorld(Ship ship, double ux, double uy) {
         double sin = Math.sin(ship.getAngle());
         double cos = Math.cos(ship.getAngle());
-        // design +x -> (-sin, cos)   |   design -y (forward) -> (cos, sin)
         double wx = ship.getX() + (-ux * sin - uy * cos) * WORLD_PER_UNIT;
         double wy = ship.getY() + ( ux * cos - uy * sin) * WORLD_PER_UNIT;
         return new double[]{wx, wy};

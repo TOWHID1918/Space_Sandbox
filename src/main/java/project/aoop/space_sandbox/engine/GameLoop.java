@@ -7,12 +7,14 @@ import project.aoop.space_sandbox.entity.CelestialBody;
 import project.aoop.space_sandbox.entity.Moon;
 import project.aoop.space_sandbox.entity.Planet;
 import project.aoop.space_sandbox.entity.Ship;
+import project.aoop.space_sandbox.entity.ShipGeometry;
 import project.aoop.space_sandbox.entity.Star;
 import project.aoop.space_sandbox.input.InputHandler;
 import project.aoop.space_sandbox.physics.OrbitalMechanics;
 import project.aoop.space_sandbox.render.GameRenderer;
 import project.aoop.space_sandbox.render.MinimapRenderer;
 import project.aoop.space_sandbox.render.SolarSystemMap;
+import project.aoop.space_sandbox.service.AsteroidService;
 import project.aoop.space_sandbox.service.CombatService;
 import project.aoop.space_sandbox.service.LevelService;
 import project.aoop.space_sandbox.service.ShipService;
@@ -42,6 +44,7 @@ public class GameLoop extends AnimationTimer {
     private final OrbitalMechanics orbitalMechanics;
     private final LevelService     levelService;
     private final CombatService    combatService;
+    private final AsteroidService  asteroidService;
     private final SolarSystemMap   solarSystemMap;
     private final MinimapRenderer  minimapRenderer;
 
@@ -49,8 +52,8 @@ public class GameLoop extends AnimationTimer {
                     InputHandler inputHandler, GameRenderer renderer,
                     GameCamera camera, Star star, List<Planet> planets,
                     OrbitalMechanics orbitalMechanics, LevelService levelService,
-                    CombatService combatService, SolarSystemMap solarSystemMap,
-                    MinimapRenderer minimapRenderer) {
+                    CombatService combatService, AsteroidService asteroidService,
+                    SolarSystemMap solarSystemMap, MinimapRenderer minimapRenderer) {
         this.gameState        = gameState;
         this.shipService      = shipService;
         this.inputHandler     = inputHandler;
@@ -61,8 +64,10 @@ public class GameLoop extends AnimationTimer {
         this.orbitalMechanics = orbitalMechanics;
         this.levelService     = levelService;
         this.combatService    = combatService;
+        this.asteroidService  = asteroidService;
         this.solarSystemMap   = solarSystemMap;
         this.minimapRenderer  = minimapRenderer;
+
     }
 
     public void setCanvasSize(double w, double h) {
@@ -86,7 +91,7 @@ public class GameLoop extends AnimationTimer {
         if (inputHandler.rotateRight())   shipService.rotateRight(dt);
         if (inputHandler.brake())         shipService.brake(dt);
 
-        // Mouse: clicks on the minimap / open map must never fire the weapons
+        // Clicks on the minimap / open map must never fire the weapons
         double  mx          = inputHandler.getMouseX();
         double  my          = inputHandler.getMouseY();
         boolean overMinimap = minimapRenderer.isClickOnMinimap(mx, my, canvasW, canvasH);
@@ -100,11 +105,11 @@ public class GameLoop extends AnimationTimer {
         }
         if (inputHandler.isMouseJustReleased()) {
             if (mapOpen) {
-                renderer.handleClick(mx, my);                 // pick a planet on the map
+                renderer.handleClick(mx, my);
             } else if (overMinimap && !combatService.isCharging()) {
-                solarSystemMap.open();                        // open the full map
+                solarSystemMap.open();
             } else {
-                combatService.onMouseReleased(ship);          // fire the charged laser
+                combatService.onMouseReleased(ship);
             }
         }
 
@@ -122,7 +127,6 @@ public class GameLoop extends AnimationTimer {
             if (!levelDownHeld) { levelService.levelDown(); levelDownHeld = true; }
         } else { levelDownHeld = false; }
 
-        // ESC closes the map
         if (inputHandler.closeMap()) {
             if (!escHeld) { solarSystemMap.close(); escHeld = true; }
         } else { escHeld = false; }
@@ -130,7 +134,7 @@ public class GameLoop extends AnimationTimer {
         // ── 2. Move planets ───────────────────────────────────────────────
         for (Planet p : planets) {
             if (p instanceof Moon m) {
-                m.updateAroundEarth(dt);       // Moon orbits Earth
+                m.updateAroundEarth(dt);
             } else {
                 orbitalMechanics.update(p, dt);
             }
@@ -142,24 +146,32 @@ public class GameLoop extends AnimationTimer {
         bodies.addAll(planets);
         shipService.update(bodies, dt);
 
-        // ── 4. Combat — AFTER the ship moved, so shots and the beam use the
-        //       same ship position that gets drawn this frame ─────────────
+        // ── 4. Weapons, then asteroids (both AFTER the ship moved) ────────
         combatService.update(dt, ship);
+        asteroidService.update(dt, ship);
 
-        // ── 5. Crash / landing checks ─────────────────────────────────────
-        if (dist(ship, star.getX(), star.getY()) <= star.getRadius()) {
-            ship.crash();
-            gameState.setState(GameState.State.PAUSED);
-            System.out.println("☀ DESTROYED — vaporized by the Sun");
+        if (ship.getHealth() <= 0) {
+            destroyShip(ship, "☄ DESTROYED — hull breached by asteroids");
+            return;
+        }
+
+        // ── 5. Sun and planet collisions (ship radius included) ───────────
+        double shipR = ShipGeometry.COLLISION_RADIUS;
+
+        if (dist(ship, star.getX(), star.getY()) <= star.getRadius() + shipR) {
+            destroyShip(ship, "☀ DESTROYED — vaporized by the Sun");
             return;
         }
 
         for (Planet p : planets) {
-            if (!levelService.isLocked(p.getName())) continue;
-            if (dist(ship, p.getX(), p.getY()) <= p.getRadius()) {
-                ship.crash();
-                gameState.setState(GameState.State.PAUSED);
-                System.out.println("💀 DESTROYED — pulled into " + p.getName()
+            double dx = ship.getX() - p.getX();
+            double dy = ship.getY() - p.getY();
+            double d  = Math.sqrt(dx * dx + dy * dy);
+            double contact = p.getRadius() + shipR;
+            if (d > contact) continue;
+
+            if (levelService.isLocked(p.getName())) {
+                destroyShip(ship, "💀 DESTROYED — pulled into " + p.getName()
                         + " (locked — reach level "
                         + levelService.getPlanetLevel(p.getName()) + " first)");
                 return;
@@ -174,6 +186,14 @@ public class GameLoop extends AnimationTimer {
 
         // ── 8. Clear one-frame input flags ────────────────────────────────
         inputHandler.clearFrameState();
+    }
+
+    // One place for every death: pause, then draw a last frame with the overlay
+    private void destroyShip(Ship ship, String message) {
+        ship.crash();
+        gameState.setState(GameState.State.PAUSED);
+        System.out.println(message);
+        renderer.render(ship, false);
     }
 
     private double dist(Ship ship, double tx, double ty) {
